@@ -11,3 +11,7 @@ dist/index.umd.js (for WordPress, via <script> or CommonJS)
 # Next js install 
 
 npm install github:vijay-karavadra/sprs-tracker-library
+
+# Wordpress CDN path
+
+https://cdn.jsdelivr.net/gh/vijay-karavadra/sprs-tracker-library@main/dist/index.umd.js
