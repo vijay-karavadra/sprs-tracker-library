@@ -14,12 +14,24 @@ function sperse_tracker_enqueue_script() {
         null,
         true
     );
-
-    wp_add_inline_script(
-        'sprs-tracker',
-        'if (window.MySharedLib && typeof MySharedLib.trackUserVisit === "function") {
-            MySharedLib.trackUserVisit();
-        }'
-    );
 }
-add_action('wp_enqueue_scripts', 'sperse_tracker_enqueue_script');
+
+function sperse_tracker_inline_script() {
+    echo "<script>
+        if (window.MySharedLib && typeof MySharedLib.trackUserVisit === 'function') {
+            MySharedLib.trackUserVisit();
+        }
+    </script>";
+}
+
+// Define the shortcode [sprs_tracker]
+function sperse_tracker_shortcode() {
+    // Make sure scripts are enqueued
+    sperse_tracker_enqueue_script();
+
+    // Return the inline script inside shortcode output
+    ob_start();
+    sperse_tracker_inline_script();
+    return ob_get_clean();
+}
+add_shortcode('sprs_tracker', 'sperse_tracker_shortcode');
