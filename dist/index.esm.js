@@ -1,1 +1,1 @@
-function r(r){return`Hello, mr. ${r}!`}export{r as greet};
+function e(e){return`Hello, mr. ${e}!`}function n(){const e={timestamp:(new Date).toISOString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,referrer:document.referrer||"Direct",entryUrl:window.location.href,language:navigator.language,platform:navigator.platform,userAgent:navigator.userAgent,screen:`${screen.width}x${screen.height}`,connection:navigator.connection?.effectiveType||"unknown"};console.log("Tracking data:",e)}export{e as greet,n as trackUserVisit};
