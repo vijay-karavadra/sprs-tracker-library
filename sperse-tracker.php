@@ -6,7 +6,7 @@ Version: 1.0
 Author: Vijay Karavadra
 */
 
-function sprs_tracker_enqueue_script() {
+function sperse_tracker_enqueue_script() {
     wp_enqueue_script(
         'sperse-tracker',
         'https://cdn.jsdelivr.net/gh/vijay-karavadra/sprs-tracker-library@main/dist/index.umd.js',
