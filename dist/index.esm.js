@@ -1,1 +1,1 @@
-function e(e){return`Hello, ${e}!`}export{e as greet};
+function r(r){return`Hello, mr. ${r}!`}export{r as greet};
