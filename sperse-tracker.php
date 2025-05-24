@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: SPRS Tracker
+Plugin Name: Sperse tracker
 Description: Loads a custom tracking library from GitHub.
 Version: 1.0
 Author: Vijay Karavadra
