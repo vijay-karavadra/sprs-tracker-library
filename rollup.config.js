@@ -1,7 +1,8 @@
 import { terser } from "rollup-plugin-terser";
+import typescript from '@rollup/plugin-typescript';
 
 export default {
-  input: "src/index.js",
+  input: "src/index.ts",
   output: [
     {
       file: "dist/index.esm.js", // for Next.js
@@ -13,5 +14,5 @@ export default {
       name: "sperse-tracker",
     },
   ],
-  plugins: [terser()],
+  plugins: [typescript()],
 };
