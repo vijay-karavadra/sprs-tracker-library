@@ -803,6 +803,8 @@
             var stored = localStorage.getItem(BATCH_STORAGE_KEY);
             if (stored) {
                 var batch = JSON.parse(stored);
+                // Ensure siteId is always set correctly
+                batch.siteId = this.siteId;
                 // Update tracking info with current page data
                 batch.trackingInfo = this.getTrackingInfo();
                 batch.utmParameter = parseUTMFromCurrentUrl();

@@ -847,6 +847,8 @@ export class VisitorTracker {
     const stored = localStorage.getItem(BATCH_STORAGE_KEY);
     if (stored) {
       const batch = JSON.parse(stored);
+      // Ensure siteId is always set correctly
+      batch.siteId = this.siteId;
       // Update tracking info with current page data
       batch.trackingInfo = this.getTrackingInfo();
       batch.utmParameter = parseUTMFromCurrentUrl();
