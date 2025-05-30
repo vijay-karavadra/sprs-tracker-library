@@ -304,80 +304,81 @@ const captureGeolocation = async (): Promise<GeolocationData | null> => {
     return null;
   }
 
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      console.log('Geolocation API not supported');
-      resolve(null);
-      return;
-    }
-
-    console.log('Requesting geolocation permission...');
+  try {
+    // First get the IP-based location data
+    const locationData = await fetchLocationData();
     
-    const timeoutId = setTimeout(() => {
-      console.log('Geolocation request timed out');
-      resolve(null);
-    }, 10000);
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        console.log('Geolocation API not supported');
+        resolve({
+          latitude: 0,
+          longitude: 0,
+          accuracy: 0,
+          timestamp: Date.now(),
+          city: locationData?.city || 'Unknown',
+          region: locationData?.region || 'Unknown',
+          country: locationData?.country || 'Unknown'
+        });
+        return;
+      }
 
-    const options = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 300000 // 5 minutes
+      console.log('Requesting geolocation permission...');
+      
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const geolocationData: GeolocationData = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: Date.now(),
+            city: locationData?.city || 'Unknown',
+            region: locationData?.region || 'Unknown',
+            country: locationData?.country || 'Unknown'
+          };
+          
+          console.log('Geolocation captured successfully:', geolocationData);
+          globalGeolocation = geolocationData;
+          resolve(geolocationData);
+        },
+        (error) => {
+          console.log('Geolocation error:', error.code, error.message);
+          resolve({
+            latitude: 0,
+            longitude: 0,
+            accuracy: 0,
+            timestamp: Date.now(),
+            city: locationData?.city || 'Unknown',
+            region: locationData?.region || 'Unknown',
+            country: locationData?.country || 'Unknown'
+          });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Error in geolocation capture:', error);
+    return {
+      latitude: 0,
+      longitude: 0,
+      accuracy: 0,
+      timestamp: Date.now(),
+      city: 'Unknown',
+      region: 'Unknown',
+      country: 'Unknown'
     };
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        clearTimeout(timeoutId);
-        
-        const geolocationData: GeolocationData = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: Date.now()
-        };
-        
-        console.log('Geolocation captured successfully:', geolocationData);
-        globalGeolocation = geolocationData;
-        resolve(geolocationData);
-      },
-      (error) => {
-        clearTimeout(timeoutId);
-        console.log('Geolocation error:', error.code, error.message);
-        resolve(null);
-      },
-      options
-    );
-  });
+  }
 };
 
 // Enhanced tracking info generation
-const generateEnhancedTrackingInfo = (): TrackingInfo => {
+const generateEnhancedTrackingInfo = async (): Promise<TrackingInfo> => {
   const referrer = document.referrer || 'Direct';
   const userAgent = navigator.userAgent;
   const parsed = parseUserAgent(userAgent);
   
-  // Extract affiliate code using enhanced extraction
-  const affiliateFromUrl = extractAffiliateCode();
-  
-  // Manage affiliate code based on attribution mode
-  const affiliateCode = manageAffiliateCode(affiliateFromUrl);
-  
-  // Determine source and channel
-  let sourceCode = 'direct';
-  let channelCode = 'direct';
-  
-  if (referrer && referrer !== 'Direct') {
-    try {
-      const refererDomain = new URL(referrer).hostname;
-      if (refererDomain !== window.location.hostname) {
-        sourceCode = 'organic';
-        channelCode = 'referral';
-      }
-    } catch (e) {
-      console.warn('Error parsing referrer URL:', e);
-    }
+  // Get location data if not already present
+  if (!globalLocationData) {
+    globalLocationData = await fetchLocationData();
   }
-  
-  const urlParams = new URLSearchParams(window.location.search);
   
   const trackingInfo: TrackingInfo = {
     referrerUrl: referrer,
@@ -393,16 +394,16 @@ const generateEnhancedTrackingInfo = (): TrackingInfo => {
     screenSize: `${screen.width}x${screen.height}`,
     language: navigator.language,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    sourceCode,
-    channelCode,
-    campaignCode: urlParams.get('utm_campaign') || urlParams.get('utm-campaign') || '',
-    affiliateCode,
+    sourceCode: 'direct',
+    channelCode: 'direct',
+    campaignCode: '',
+    affiliateCode: '',
     clientIp: globalClientIp,
-    city: globalLocationData?.city,
-    region: globalLocationData?.region,
-    country: globalLocationData?.country,
-    isp: globalLocationData?.isp,
-    connectionType: globalLocationData?.connectionType,
+    city: globalLocationData?.city || 'Unknown',
+    region: globalLocationData?.region || 'Unknown',
+    country: globalLocationData?.country || 'Unknown',
+    isp: globalLocationData?.isp || 'Unknown',
+    connectionType: globalLocationData?.connectionType || 'Unknown',
     comments: '',
     customField1: '',
     customField2: '',
@@ -525,11 +526,16 @@ export class VisitorTracker {
     }
   }
 
-  public getCurrentBatch(): BatchPayload {
+  public async getCurrentBatch(): Promise<BatchPayload> {
     try {
       const stored = localStorage.getItem('trk_tracking_batch');
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        // Update tracking info if missing required fields
+        if (!parsed.trackingInfo.isp || !parsed.trackingInfo.city) {
+          parsed.trackingInfo = await generateEnhancedTrackingInfo();
+        }
+        return parsed;
       }
     } catch (error) {
       console.error('Error parsing stored batch:', error);
@@ -541,10 +547,18 @@ export class VisitorTracker {
       visitorUUID: this.visitorUUID,
       sessionId: this.sessionId,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      trackingInfo: generateEnhancedTrackingInfo(),
+      trackingInfo: await generateEnhancedTrackingInfo(),
       utmParameter: parseUtmParameters(),
       visits: [],
-      geolocation: globalGeolocation || undefined
+      geolocation: globalGeolocation || {
+        latitude: 0,
+        longitude: 0,
+        accuracy: 0,
+        timestamp: Date.now(),
+        city: 'Unknown',
+        region: 'Unknown',
+        country: 'Unknown'
+      }
     };
 
     return newBatch;
