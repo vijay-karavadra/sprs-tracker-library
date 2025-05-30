@@ -623,27 +623,5 @@ var getPagesVisited = function () {
 var getPageCount = function () {
     return getPagesVisited().length;
 };
-// ============================================================================
-// EXPORTS
-// ============================================================================
-// Export everything for external usage
-var index = {
-    initializeTracking: initializeTracking,
-    VisitorTracker: VisitorTracker,
-    TrackingDebugger: TrackingDebugger,
-    parseUserAgent: parseUserAgent,
-    parseAffiliateCode: parseAffiliateCode,
-    getBrowserGeolocation: getBrowserGeolocation,
-    fetchLocationData: fetchLocationData,
-    fetchUserIP: fetchUserIP,
-    fetchLocationFromIP: fetchLocationFromIP,
-    setCookie: setCookie,
-    getCookie: getCookie,
-    getUserTrackingData: getUserTrackingData,
-    getBrowserInfo: getBrowserInfo,
-    trackPageVisit: trackPageVisit,
-    getPagesVisited: getPagesVisited,
-    getPageCount: getPageCount
-};
 
-export { VisitorTracker, index as default, fetchLocationData, fetchUserIP, getCookie, getPageCount, getPagesVisited, getUserTrackingData, initializeTracking, parseUserAgent, setCookie };
+export { VisitorTracker, fetchLocationData, fetchUserIP, getCookie, getPageCount, getPagesVisited, getUserTrackingData, initializeTracking, parseUserAgent, setCookie };

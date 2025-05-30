@@ -696,28 +696,3 @@ export const getPagesVisited = (): string[] => {
 export const getPageCount = (): number => {
   return getPagesVisited().length;
 };
-
-
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
-// Export everything for external usage
-export default {
-  initializeTracking,
-  VisitorTracker,
-  TrackingDebugger,
-  parseUserAgent,
-  parseAffiliateCode,
-  getBrowserGeolocation,
-  fetchLocationData,
-  fetchUserIP,
-  fetchLocationFromIP,
-  setCookie,
-  getCookie,
-  getUserTrackingData,
-  getBrowserInfo,
-  trackPageVisit,
-  getPagesVisited,
-  getPageCount
-};
