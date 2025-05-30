@@ -69,56 +69,42 @@ typeof SuppressedError === "function" ? SuppressedError : function (error, suppr
     return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
 };
 
-/**
- * Comprehensive User Tracking System
- *
- * A complete tracking solution for web applications that captures user behavior,
- * affiliate codes, UTM parameters, session data, IP address, and geolocation for CRM integration.
- *
- * Features:
- * - Visitor and session tracking with UUIDs
- * - IP address and geolocation capture
- * - Automatic affiliate code detection from URLs and storage
- * - UTM parameter parsing (both hyphenated and underscore formats)
- * - Batch processing with configurable intervals
- * - Browser fingerprinting and geolocation
- * - Legacy compatibility functions
- * - Debug utilities for troubleshooting
- *
- * Usage:
- * ```javascript
- * import { initializeTracking } from './userTracking';
- *
- * const tracker = initializeTracking('your-site-id', 'https://your-api.com/tracking');
- * // Tracking starts automatically
- * ```
- *
- * @version 2.2.0
- * @author CRM Tracking System
- */
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-var VISITOR_COOKIE = 'trk_visitor_uuid';
-var SESSION_COOKIE = 'trk_session_id';
-var AFFILIATE_COOKIE = 'affiliateRefCode';
-var BATCH_STORAGE_KEY = 'trk_tracking_batch';
-var ENTRY_URL_KEY = 'trk_entry_url';
-var REFERRER_KEY = 'trk_original_referrer';
-var REFERRER_DOMAIN_KEY = 'trk_original_referrer_domain';
+// Configuration constants with defaults
+var DEFAULT_COOKIE_EXPIRE_DAYS = 30;
+var DEFAULT_SESSION_TIMEOUT = 60 * 60 * 1000; // 1 hour
+var DEFAULT_BATCH_SEND_INTERVAL = 30 * 1000; // 30 seconds
+var DEFAULT_ATTRIBUTION_MODE = 'first-visit';
 var FIRST_VISIT_KEY = 'trk_first_visit';
-var BATCH_INTERVAL = 60000; // 1 minute
-var SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-// Global variables for captured data
-var capturedIP = '';
-var capturedLocation = null;
-var capturedGeolocation = null;
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-/**
- * Fetch user's real IP address
- */
+var SESSION_START_KEY = 'trk_session_start';
+// Global variables for tracking data
+var globalClientIp = '';
+var globalGeolocation = null;
+var globalLocationData = null;
+var dataSources = [];
+var currentConfig = {
+    affiliateAttributionMode: DEFAULT_ATTRIBUTION_MODE,
+    cookieExpireDays: DEFAULT_COOKIE_EXPIRE_DAYS,
+    sessionTimeout: DEFAULT_SESSION_TIMEOUT,
+    batchSendInterval: DEFAULT_BATCH_SEND_INTERVAL,
+    enableGeolocation: true
+};
+// Cookie management functions
+var setCookie = function (name, value, days) {
+    var cookieExpireDays = days || currentConfig.cookieExpireDays;
+    var expires = new Date();
+    expires.setTime(expires.getTime() + (cookieExpireDays * 24 * 60 * 60 * 1000));
+    document.cookie = "".concat(name, "=").concat(value, ";expires=").concat(expires.toUTCString(), ";path=/;SameSite=Lax");
+};
+var getCookie = function (name) {
+    var _a;
+    var value = "; ".concat(document.cookie);
+    var parts = value.split("; ".concat(name, "="));
+    if (parts.length === 2) {
+        return ((_a = parts.pop()) === null || _a === void 0 ? void 0 : _a.split(';').shift()) || '';
+    }
+    return '';
+};
+// Fetch user IP function
 var fetchUserIP = function () { return __awaiter(void 0, void 0, void 0, function () {
     var response, data, error_1;
     return __generator(this, function (_a) {
@@ -131,792 +117,373 @@ var fetchUserIP = function () { return __awaiter(void 0, void 0, void 0, functio
                 return [4 /*yield*/, response.json()];
             case 2:
                 data = _a.sent();
-                capturedIP = data.ip;
-                console.log('User IP captured:', capturedIP);
-                return [2 /*return*/, capturedIP];
+                return [2 /*return*/, data.ip];
             case 3:
                 error_1 = _a.sent();
                 console.error('Failed to fetch user IP:', error_1);
-                capturedIP = 'Unknown';
-                return [2 /*return*/, capturedIP];
+                return [2 /*return*/, 'Unknown'];
             case 4: return [2 /*return*/];
         }
     });
 }); };
-/**
- * Fetch location data from IP address
- */
-var fetchLocationFromIP = function (ip) { return __awaiter(void 0, void 0, void 0, function () {
-    var response, data, error_2;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                if (!ip || ip === 'Unknown')
-                    return [2 /*return*/, null];
-                _a.label = 1;
-            case 1:
-                _a.trys.push([1, 4, , 5]);
-                return [4 /*yield*/, fetch("https://ipapi.co/".concat(ip, "/json/"))];
-            case 2:
-                response = _a.sent();
-                if (!response.ok)
-                    throw new Error('Failed to fetch location data');
-                return [4 /*yield*/, response.json()];
-            case 3:
-                data = _a.sent();
-                capturedLocation = {
-                    city: data.city || '',
-                    region: data.region || '',
-                    country: data.country_name || '',
-                    isp: data.org || '',
-                    connection: data.connection_type || 'Unknown'
-                };
-                console.log('Location data captured:', capturedLocation);
-                return [2 /*return*/, capturedLocation];
-            case 4:
-                error_2 = _a.sent();
-                console.error('Error fetching location data:', error_2);
-                return [2 /*return*/, null];
-            case 5: return [2 /*return*/];
+// Enhanced affiliate code extraction from URL parameters and path
+var extractAffiliateCode = function () {
+    console.log('=== Enhanced Affiliate Code Extraction ===');
+    // Check URL parameters first
+    var urlParams = new URLSearchParams(window.location.search);
+    var affiliateParams = ['ref', 'a', 'aff', 'affiliate', 'via', 'partner'];
+    for (var _i = 0, affiliateParams_1 = affiliateParams; _i < affiliateParams_1.length; _i++) {
+        var param = affiliateParams_1[_i];
+        var value = urlParams.get(param);
+        if (value && value.trim()) {
+            console.log("Found affiliate code in URL parameter ".concat(param, ":"), value.trim());
+            return value.trim();
         }
-    });
-}); };
-/**
- * Get browser geolocation with reverse geocoding
- */
-var getBrowserGeolocation = function () {
-    return new Promise(function (resolve) {
-        if (!navigator.geolocation) {
-            console.log('Geolocation is not supported by this browser');
-            resolve(null);
-            return;
+    }
+    // Check URL path patterns like /a/<value>, /ref/<value>, etc.
+    var pathname = window.location.pathname;
+    var pathPatterns = [
+        /\/a\/([^\/\?#]+)/i, // /a/partner123
+        /\/ref\/([^\/\?#]+)/i, // /ref/partner123
+        /\/aff\/([^\/\?#]+)/i, // /aff/partner123
+        /\/affiliate\/([^\/\?#]+)/i, // /affiliate/partner123
+        /\/via\/([^\/\?#]+)/i, // /via/partner123
+        /\/partner\/([^\/\?#]+)/i // /partner/partner123
+    ];
+    for (var _a = 0, pathPatterns_1 = pathPatterns; _a < pathPatterns_1.length; _a++) {
+        var pattern = pathPatterns_1[_a];
+        var match = pathname.match(pattern);
+        if (match && match[1]) {
+            console.log("Found affiliate code in URL path with pattern ".concat(pattern.source, ":"), match[1]);
+            return match[1];
         }
-        navigator.geolocation.getCurrentPosition(function (position) { return __awaiter(void 0, void 0, void 0, function () {
-            var geolocationData, reverseGeocodingData, error_3;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        geolocationData = {
-                            latitude: position.coords.latitude,
-                            longitude: position.coords.longitude,
-                            accuracy: position.coords.accuracy,
-                            timestamp: Date.now()
-                        };
-                        _a.label = 1;
-                    case 1:
-                        _a.trys.push([1, 3, , 4]);
-                        return [4 /*yield*/, reverseGeocode(geolocationData.latitude, geolocationData.longitude)];
-                    case 2:
-                        reverseGeocodingData = _a.sent();
-                        if (reverseGeocodingData) {
-                            geolocationData.city = reverseGeocodingData.city;
-                            geolocationData.region = reverseGeocodingData.region;
-                            geolocationData.country = reverseGeocodingData.country;
-                        }
-                        return [3 /*break*/, 4];
-                    case 3:
-                        error_3 = _a.sent();
-                        console.error('Error with reverse geocoding:', error_3);
-                        return [3 /*break*/, 4];
-                    case 4:
-                        capturedGeolocation = geolocationData;
-                        console.log('Browser geolocation obtained:', geolocationData);
-                        resolve(geolocationData);
-                        return [2 /*return*/];
-                }
-            });
-        }); }, function (error) {
-            console.log('Geolocation permission denied or error:', error.message);
-            resolve(null);
-        }, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 300000 // Cache for 5 minutes
-        });
-    });
-};
-/**
- * Cookie utility functions for managing tracking cookies
- */
-var setCookie = function (name, value, days) {
-    if (days === void 0) { days = 30; }
-    var expires = new Date();
-    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
-    document.cookie = "".concat(name, "=").concat(value, ";expires=").concat(expires.toUTCString(), ";path=/");
-};
-var getCookie = function (name) {
-    var nameEQ = name + "=";
-    var ca = document.cookie.split(';');
-    for (var i = 0; i < ca.length; i++) {
-        var c = ca[i];
-        while (c.charAt(0) === ' ')
-            c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) === 0)
-            return c.substring(nameEQ.length, c.length);
     }
-    return '';
+    console.log('No affiliate code found in URL parameters or path');
+    return null;
 };
-var getCookieInternal = function (name) {
-    var _a;
-    var value = "; ".concat(document.cookie);
-    var parts = value.split("; ".concat(name, "="));
-    if (parts.length === 2) {
-        return ((_a = parts.pop()) === null || _a === void 0 ? void 0 : _a.split(';').shift()) || '';
-    }
-    return '';
-};
-var setCookieInternal = function (name, value, days) {
-    var expires = '';
-    if (days) {
-        var date = new Date();
-        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-        expires = "; expires=".concat(date.toUTCString());
-    }
-    document.cookie = "".concat(name, "=").concat(value).concat(expires, "; path=/; SameSite=Lax");
-};
-/**
- * Parse user agent string to extract browser, device, and OS information
- */
+// Parse user agent for browser and device information
 var parseUserAgent = function (userAgent) {
-    // Browser detection
+    var browsers = [
+        { name: 'Chrome', regex: /Chrome\/([0-9.]+)/ },
+        { name: 'Firefox', regex: /Firefox\/([0-9.]+)/ },
+        { name: 'Safari', regex: /Safari\/([0-9.]+)/ },
+        { name: 'Edge', regex: /Edge\/([0-9.]+)/ },
+        { name: 'Opera', regex: /Opera\/([0-9.]+)/ }
+    ];
     var browser = 'Unknown';
     var browserVersion = '';
-    if (userAgent.includes('Chrome')) {
-        browser = 'Chrome';
-        var match = userAgent.match(/Chrome\/([0-9.]+)/);
-        browserVersion = match ? match[1] : '';
+    for (var _i = 0, browsers_1 = browsers; _i < browsers_1.length; _i++) {
+        var b = browsers_1[_i];
+        var match = userAgent.match(b.regex);
+        if (match) {
+            browser = b.name;
+            browserVersion = match[1];
+            break;
+        }
     }
-    else if (userAgent.includes('Firefox')) {
-        browser = 'Firefox';
-        var match = userAgent.match(/Firefox\/([0-9.]+)/);
-        browserVersion = match ? match[1] : '';
-    }
-    else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
-        browser = 'Safari';
-        var match = userAgent.match(/Version\/([0-9.]+)/);
-        browserVersion = match ? match[1] : '';
-    }
-    else if (userAgent.includes('Edge')) {
-        browser = 'Edge';
-        var match = userAgent.match(/Edge\/([0-9.]+)/);
-        browserVersion = match ? match[1] : '';
-    }
-    // Device detection
-    var device = 'Desktop';
-    if (/Mobile|Android|iPhone|iPod|BlackBerry|Windows Phone/i.test(userAgent)) {
+    // Ensure device returns the correct union type
+    var device = 'Unknown';
+    if (/Mobile|Android|iPhone/.test(userAgent)) {
         device = 'Mobile';
     }
-    else if (/iPad|Tablet/i.test(userAgent)) {
+    else if (/iPad|Tablet/.test(userAgent)) {
         device = 'Tablet';
     }
-    // OS detection
+    else if (!/Mobile|Android|iPhone|iPad|Tablet/.test(userAgent)) {
+        device = 'Desktop';
+    }
     var os = 'Unknown';
-    if (userAgent.includes('Windows')) {
+    if (/Windows/.test(userAgent))
         os = 'Windows';
-    }
-    else if (userAgent.includes('Mac OS')) {
+    else if (/Mac OS/.test(userAgent))
         os = 'macOS';
-    }
-    else if (userAgent.includes('Linux')) {
+    else if (/Linux/.test(userAgent))
         os = 'Linux';
-    }
-    else if (userAgent.includes('Android')) {
+    else if (/Android/.test(userAgent))
         os = 'Android';
-    }
-    else if (userAgent.includes('iOS') || userAgent.includes('iPhone') || userAgent.includes('iPad')) {
+    else if (/iOS/.test(userAgent))
         os = 'iOS';
-    }
-    return {
-        browser: browser,
-        browserVersion: browserVersion,
-        device: device,
-        os: os
-    };
+    return { browser: browser, browserVersion: browserVersion, device: device, os: os };
 };
-/**
- * Parse affiliate code from URL using various parameter formats
- */
-var parseAffiliateCode = function (url) {
-    try {
-        var urlObj = new URL(url);
-        var params = urlObj.searchParams;
-        // Check query parameters - expanded list
-        var affiliateParams = ['ref', 'a', 'aff', 'affiliate', 'via', 'partner'];
-        for (var _i = 0, affiliateParams_1 = affiliateParams; _i < affiliateParams_1.length; _i++) {
-            var param = affiliateParams_1[_i];
-            var value = params.get(param);
-            if (value)
-                return value;
-        }
-        // Check path segments
-        var pathname = urlObj.pathname;
-        var pathMatches = [
-            /\/ref\/([^\/]+)/,
-            /\/a\/([^\/]+)/,
-            /\/aff\/([^\/]+)/,
-            /\/via\/([^\/]+)/,
-            /\/affiliate\/([^\/]+)/
-        ];
-        for (var _a = 0, pathMatches_1 = pathMatches; _a < pathMatches_1.length; _a++) {
-            var regex = pathMatches_1[_a];
-            var match = pathname.match(regex);
-            if (match && match[1])
-                return match[1];
-        }
-        return null;
-    }
-    catch (error) {
-        console.error('Error parsing affiliate code:', error);
-        return null;
-    }
-};
-/**
- * Reverse geocode coordinates to city/region
- */
-var reverseGeocode = function (latitude, longitude) { return __awaiter(void 0, void 0, void 0, function () {
-    var response, data, error_4;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                _a.trys.push([0, 3, , 4]);
-                return [4 /*yield*/, fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=".concat(latitude, "&longitude=").concat(longitude, "&localityLanguage=en"))];
-            case 1:
-                response = _a.sent();
-                if (!response.ok)
-                    throw new Error('Failed to reverse geocoding');
-                return [4 /*yield*/, response.json()];
-            case 2:
-                data = _a.sent();
-                return [2 /*return*/, {
-                        city: data.city || data.locality,
-                        region: data.principalSubdivision,
-                        country: data.countryName
-                    }];
-            case 3:
-                error_4 = _a.sent();
-                console.error('Error with reverse geocoding:', error_4);
-                return [2 /*return*/, null];
-            case 4: return [2 /*return*/];
-        }
-    });
-}); };
-/**
- * Fetch location data from IP address
- */
-var fetchLocationData = function (ip) { return __awaiter(void 0, void 0, void 0, function () {
-    var response, data, error_5;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                _a.trys.push([0, 3, , 4]);
-                return [4 /*yield*/, fetch("https://ipapi.co/".concat(ip, "/json/"))];
-            case 1:
-                response = _a.sent();
-                if (!response.ok)
-                    throw new Error('Failed to fetch location data');
-                return [4 /*yield*/, response.json()];
-            case 2:
-                data = _a.sent();
-                return [2 /*return*/, {
-                        city: data.city,
-                        region: data.region,
-                        country: data.country_name,
-                        isp: data.org,
-                        connection: data.connection_type || 'Unknown'
-                    }];
-            case 3:
-                error_5 = _a.sent();
-                console.error('Error fetching location data:', error_5);
-                return [2 /*return*/, null];
-            case 4: return [2 /*return*/];
-        }
-    });
-}); };
-// ============================================================================
-// ENHANCED REFERRER AND UTM DETECTION
-// ============================================================================
-/**
- * Enhanced referrer detection with multiple fallback methods
- */
-var detectReferrerData = function () {
-    console.log('=== Enhanced Referrer Detection ===');
-    console.log('document.referrer:', document.referrer);
-    console.log('window.location.href:', window.location.href);
-    // Check if this is the very first visit
-    var isFirstVisit = !localStorage.getItem(FIRST_VISIT_KEY);
-    console.log('Is first visit:', isFirstVisit);
-    var referrerUrl = '';
-    var referrerDomain = '';
-    if (isFirstVisit) {
-        // On first visit, capture the referrer from document.referrer
-        var docReferrer = document.referrer || '';
-        console.log('First visit - document.referrer:', docReferrer);
-        if (docReferrer && docReferrer.trim() !== '') {
-            referrerUrl = docReferrer;
-            referrerDomain = extractDomainFromUrl(docReferrer);
-            // Store for future visits
-            try {
-                localStorage.setItem(REFERRER_KEY, referrerUrl);
-                localStorage.setItem(REFERRER_DOMAIN_KEY, referrerDomain);
-                localStorage.setItem(FIRST_VISIT_KEY, Date.now().toString());
-                console.log('Stored referrer data:', { referrerUrl: referrerUrl, referrerDomain: referrerDomain });
-            }
-            catch (e) {
-                console.warn('Could not store referrer data in localStorage');
-            }
+// Affiliate code management with configurable attribution mode
+var manageAffiliateCode = function (newAffiliateCode) {
+    console.log('=== Enhanced Affiliate Code Management ===');
+    console.log('Affiliate Mode:', currentConfig.affiliateAttributionMode);
+    console.log('New affiliate code from URL:', newAffiliateCode);
+    var existingCookieAffiliate = getCookie('affiliateRefCode');
+    var existingStorageAffiliate = localStorage.getItem('affiliateRefCode');
+    console.log('Existing cookie affiliate:', existingCookieAffiliate);
+    console.log('Existing storage affiliate:', existingStorageAffiliate);
+    var finalAffiliateCode = '';
+    if (currentConfig.affiliateAttributionMode === 'most-recent') {
+        // Most recent mode: new affiliate code overwrites existing
+        if (newAffiliateCode) {
+            finalAffiliateCode = newAffiliateCode;
+            setCookie('affiliateRefCode', newAffiliateCode);
+            localStorage.setItem('affiliateRefCode', newAffiliateCode);
+            console.log('Setting new affiliate code (most-recent mode):', newAffiliateCode);
         }
         else {
-            // Try alternative detection methods for first visit
-            referrerUrl = detectReferrerFromBrowser() || 'Direct';
-            referrerDomain = referrerUrl === 'Direct' ? 'Direct' : extractDomainFromUrl(referrerUrl);
-            try {
-                localStorage.setItem(REFERRER_KEY, referrerUrl);
-                localStorage.setItem(REFERRER_DOMAIN_KEY, referrerDomain);
-                localStorage.setItem(FIRST_VISIT_KEY, Date.now().toString());
-            }
-            catch (e) {
-                console.warn('Could not store referrer data in localStorage');
-            }
+            // Use existing if no new one provided
+            finalAffiliateCode = existingCookieAffiliate || existingStorageAffiliate || '';
+            console.log('Using existing affiliate code (most-recent mode):', finalAffiliateCode);
         }
     }
     else {
-        // For subsequent visits, use stored data
+        // First visit mode: existing affiliate code is preserved
+        if (existingCookieAffiliate || existingStorageAffiliate) {
+            finalAffiliateCode = existingCookieAffiliate || existingStorageAffiliate || '';
+            console.log('Preserving existing affiliate code (first-visit mode):', finalAffiliateCode);
+        }
+        else if (newAffiliateCode) {
+            finalAffiliateCode = newAffiliateCode;
+            setCookie('affiliateRefCode', newAffiliateCode);
+            localStorage.setItem('affiliateRefCode', newAffiliateCode);
+            console.log('Setting first affiliate code (first-visit mode):', newAffiliateCode);
+        }
+    }
+    console.log('Final affiliate code:', finalAffiliateCode);
+    console.log('=== End Affiliate Code Management ===');
+    return finalAffiliateCode;
+};
+// Automatic geolocation capture
+var captureGeolocation = function () { return __awaiter(void 0, void 0, void 0, function () {
+    return __generator(this, function (_a) {
+        if (!currentConfig.enableGeolocation) {
+            console.log('Geolocation capture disabled in configuration');
+            return [2 /*return*/, null];
+        }
+        return [2 /*return*/, new Promise(function (resolve) {
+                if (!navigator.geolocation) {
+                    console.log('Geolocation API not supported');
+                    resolve(null);
+                    return;
+                }
+                console.log('Requesting geolocation permission...');
+                var timeoutId = setTimeout(function () {
+                    console.log('Geolocation request timed out');
+                    resolve(null);
+                }, 10000);
+                var options = {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 300000 // 5 minutes
+                };
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    clearTimeout(timeoutId);
+                    var geolocationData = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        timestamp: Date.now()
+                    };
+                    console.log('Geolocation captured successfully:', geolocationData);
+                    globalGeolocation = geolocationData;
+                    resolve(geolocationData);
+                }, function (error) {
+                    clearTimeout(timeoutId);
+                    console.log('Geolocation error:', error.code, error.message);
+                    resolve(null);
+                }, options);
+            })];
+    });
+}); };
+// Enhanced tracking info generation
+var generateEnhancedTrackingInfo = function () {
+    var referrer = document.referrer || 'Direct';
+    var userAgent = navigator.userAgent;
+    var parsed = parseUserAgent(userAgent);
+    // Extract affiliate code using enhanced extraction
+    var affiliateFromUrl = extractAffiliateCode();
+    // Manage affiliate code based on attribution mode
+    var affiliateCode = manageAffiliateCode(affiliateFromUrl);
+    // Determine source and channel
+    var sourceCode = 'direct';
+    var channelCode = 'direct';
+    if (referrer && referrer !== 'Direct') {
         try {
-            referrerUrl = localStorage.getItem(REFERRER_KEY) || 'Direct';
-            referrerDomain = localStorage.getItem(REFERRER_DOMAIN_KEY) || 'Direct';
-            console.log('Retrieved stored referrer data:', { referrerUrl: referrerUrl, referrerDomain: referrerDomain });
-        }
-        catch (e) {
-            console.warn('Could not retrieve referrer data from localStorage');
-            referrerUrl = 'Direct';
-            referrerDomain = 'Direct';
-        }
-    }
-    console.log('Final referrer data:', { referrerUrl: referrerUrl, referrerDomain: referrerDomain });
-    console.log('=== End Enhanced Referrer Detection ===');
-    return {
-        url: referrerUrl,
-        domain: referrerDomain
-    };
-};
-/**
- * Alternative referrer detection methods
- */
-var detectReferrerFromBrowser = function () {
-    // Method 1: Check for search engine parameters that might indicate source
-    var urlParams = new URLSearchParams(window.location.search);
-    var searchEngines = ['google', 'bing', 'yahoo', 'duckduckgo'];
-    for (var _i = 0, searchEngines_1 = searchEngines; _i < searchEngines_1.length; _i++) {
-        var engine = searchEngines_1[_i];
-        if (urlParams.get('utm_source') === engine || urlParams.get('source') === engine) {
-            return 'https://www.' + engine + '.com';
-        }
-    }
-    // Method 2: Check if there are UTM parameters indicating external source
-    var utmSource = urlParams.get('utm_source') || urlParams.get('utm-source');
-    if (utmSource && utmSource !== 'direct') {
-        return 'https://' + utmSource + '.com';
-    }
-    // Method 3: Check for affiliate parameters
-    var affiliateParams = ['ref', 'a', 'aff', 'affiliate', 'via', 'partner'];
-    for (var _a = 0, affiliateParams_2 = affiliateParams; _a < affiliateParams_2.length; _a++) {
-        var param = affiliateParams_2[_a];
-        var value = urlParams.get(param);
-        if (value) {
-            return 'Affiliate: ' + value;
-        }
-    }
-    return null;
-};
-/**
- * Extract domain from URL with improved error handling
- */
-var extractDomainFromUrl = function (url) {
-    if (!url || url === 'Direct' || url.trim() === '') {
-        return 'Direct';
-    }
-    try {
-        // Handle special cases
-        if (url.startsWith('Affiliate:')) {
-            return 'Affiliate';
-        }
-        // Ensure URL has protocol
-        if (!url.match(/^https?:\/\//)) {
-            url = 'https://' + url;
-        }
-        var urlObj = new URL(url);
-        var domain = urlObj.hostname;
-        // Remove www. prefix if present
-        if (domain.startsWith('www.')) {
-            domain = domain.substring(4);
-        }
-        return domain;
-    }
-    catch (error) {
-        console.error('Error extracting domain from URL:', url, error);
-        return 'Unknown';
-    }
-};
-/**
- * Parse UTM parameters from current URL
- */
-var parseUTMFromCurrentUrl = function () {
-    var urlParams = new URLSearchParams(window.location.search);
-    // Helper function to get parameter value or "Not set"
-    var getParamValue = function () {
-        var paramNames = [];
-        for (var _i = 0; _i < arguments.length; _i++) {
-            paramNames[_i] = arguments[_i];
-        }
-        for (var _a = 0, paramNames_1 = paramNames; _a < paramNames_1.length; _a++) {
-            var paramName = paramNames_1[_a];
-            var value = urlParams.get(paramName);
-            if (value && value.trim() !== '') {
-                return value.trim();
+            var refererDomain = new URL(referrer).hostname;
+            if (refererDomain !== window.location.hostname) {
+                sourceCode = 'organic';
+                channelCode = 'referral';
             }
         }
-        return 'Not set';
-    };
-    // Handle both hyphenated and underscored UTM parameters
-    var utmParams = {
-        source: getParamValue('utm_source', 'utm-source'),
-        medium: getParamValue('utm_medium', 'utm-medium'),
-        campaign: getParamValue('utm_campaign', 'utm-campaign'),
-        term: getParamValue('utm_term', 'utm-term'),
-        content: getParamValue('utm_content', 'utm-content'),
-        keyword: getParamValue('utm_keyword', 'utm-keyword', 'keyword'),
-        adGroup: getParamValue('utm_adgroup', 'utm-adgroup', 'utm_adGroup', 'utm-adGroup', 'adgroup'),
-        name: getParamValue('utm_name', 'utm-name', 'name')
-    };
-    console.log('Parsed UTM parameters from current URL:', utmParams);
-    return utmParams;
-};
-/**
- * Parse affiliate code from current URL
- */
-var parseAffiliateFromCurrentUrl = function () {
-    var urlParams = new URLSearchParams(window.location.search);
-    var affiliateParams = ['ref', 'a', 'aff', 'affiliate', 'via', 'partner'];
-    for (var _i = 0, affiliateParams_3 = affiliateParams; _i < affiliateParams_3.length; _i++) {
-        var param = affiliateParams_3[_i];
-        var value = urlParams.get(param);
-        if (value) {
-            console.log('Affiliate code found in current URL:', value);
-            setCookieInternal(AFFILIATE_COOKIE, value, 30); // Save for 30 days
-            localStorage.setItem('affiliateRefCode', value);
-            return value;
+        catch (e) {
+            console.warn('Error parsing referrer URL:', e);
         }
     }
-    // Return previously stored affiliate code if none found in current URL
-    return getCookieInternal(AFFILIATE_COOKIE) || '';
+    var urlParams = new URLSearchParams(window.location.search);
+    var trackingInfo = {
+        referrerUrl: referrer,
+        refererDomain: referrer !== 'Direct' ? new URL(referrer).hostname : '',
+        entryUrl: window.location.href,
+        siteUrl: window.location.origin,
+        userAgent: userAgent,
+        browser: parsed.browser,
+        browserVersion: parsed.browserVersion,
+        deviceType: parsed.device,
+        operatingSystem: parsed.os,
+        platform: navigator.platform,
+        screenSize: "".concat(screen.width, "x").concat(screen.height),
+        language: navigator.language,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        sourceCode: sourceCode,
+        channelCode: channelCode,
+        campaignCode: urlParams.get('utm_campaign') || urlParams.get('utm-campaign') || '',
+        affiliateCode: affiliateCode,
+        clientIp: globalClientIp,
+        city: globalLocationData === null || globalLocationData === void 0 ? void 0 : globalLocationData.city,
+        region: globalLocationData === null || globalLocationData === void 0 ? void 0 : globalLocationData.region,
+        country: globalLocationData === null || globalLocationData === void 0 ? void 0 : globalLocationData.country,
+        isp: globalLocationData === null || globalLocationData === void 0 ? void 0 : globalLocationData.isp,
+        connectionType: globalLocationData === null || globalLocationData === void 0 ? void 0 : globalLocationData.connectionType,
+        comments: '',
+        customField1: '',
+        customField2: '',
+        customField3: '',
+        customField4: '',
+        customField5: ''
+    };
+    console.log('Generated enhanced tracking info with proper affiliate code:', trackingInfo);
+    return trackingInfo;
 };
-// ============================================================================
-// MAIN VISITOR TRACKER CLASS
-// ============================================================================
-/**
- * Main VisitorTracker class that handles all tracking functionality including IP and geolocation
- */
+// Parse UTM parameters
+var parseUtmParameters = function () {
+    var urlParams = new URLSearchParams(window.location.search);
+    var utmParams = {
+        source: urlParams.get('utm_source') || urlParams.get('utm-source') || 'Not set',
+        medium: urlParams.get('utm_medium') || urlParams.get('utm-medium') || 'Not set',
+        campaign: urlParams.get('utm_campaign') || urlParams.get('utm-campaign') || 'Not set',
+        term: urlParams.get('utm_term') || urlParams.get('utm-term') || 'Not set',
+        content: urlParams.get('utm_content') || urlParams.get('utm-content') || 'Not set',
+        keyword: urlParams.get('utm_keyword') || urlParams.get('utm-keyword') || 'Not set',
+        adGroup: urlParams.get('utm_adgroup') || urlParams.get('utm-adgroup') || 'Not set',
+        name: urlParams.get('utm_name') || urlParams.get('utm-name') || 'Not set'
+    };
+    console.log('Parsed UTM parameters:', utmParams);
+    return utmParams;
+};
+// Main VisitorTracker class with configurable options
 var VisitorTracker = /** @class */ (function () {
-    function VisitorTracker(siteId, apiEndpoint) {
+    function VisitorTracker(siteId, apiEndpoint, config) {
         this.batchTimer = null;
-        this.dataReady = false;
         this.siteId = siteId;
         this.apiEndpoint = apiEndpoint;
-        this.visitorUUID = this.getOrCreateVisitorUUID();
-        this.sessionId = this.getOrCreateSessionId();
-        // Store initial entry URL to handle browser referrer inconsistencies
-        this.storeInitialEntryUrl();
-        // Initialize data capture first, then start tracking
-        this.initializeDataCapture();
+        // Merge provided config with defaults
+        this.config = {
+            affiliateAttributionMode: (config === null || config === void 0 ? void 0 : config.affiliateAttributionMode) || DEFAULT_ATTRIBUTION_MODE,
+            cookieExpireDays: (config === null || config === void 0 ? void 0 : config.cookieExpireDays) || DEFAULT_COOKIE_EXPIRE_DAYS,
+            sessionTimeout: (config === null || config === void 0 ? void 0 : config.sessionTimeout) || DEFAULT_SESSION_TIMEOUT,
+            batchSendInterval: (config === null || config === void 0 ? void 0 : config.batchSendInterval) || DEFAULT_BATCH_SEND_INTERVAL,
+            enableGeolocation: (config === null || config === void 0 ? void 0 : config.enableGeolocation) !== undefined ? config.enableGeolocation : true
+        };
+        // Set global config for use by other functions
+        currentConfig = this.config;
+        console.log('VisitorTracker initialized with config:', this.config);
+        // Initialize visitor UUID
+        this.visitorUUID = getCookie('trk_visitor_uuid') || v4();
+        setCookie('trk_visitor_uuid', this.visitorUUID, 365);
+        // Initialize session
+        this.sessionId = getCookie('trk_session_id') || "".concat(this.visitorUUID, "_").concat(Date.now());
+        setCookie('trk_session_id', this.sessionId);
+        setCookie('trk_session_timestamp', Date.now().toString());
+        // Track first visit
+        if (!localStorage.getItem(FIRST_VISIT_KEY)) {
+            localStorage.setItem(FIRST_VISIT_KEY, Date.now().toString());
+        }
+        // Track session start
+        localStorage.setItem(SESSION_START_KEY, Date.now().toString());
+        // Initialize tracking and geolocation capture
+        this.initializeTracking();
+        // Setup global reference
+        window.crmTracker = this;
     }
-    /**
-     * Initialize data capture for IP and geolocation
-     */
-    VisitorTracker.prototype.initializeDataCapture = function () {
+    VisitorTracker.prototype.initializeTracking = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var results, ipResult, geolocationResult, error_6;
+            var error_2;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        _a.trys.push([0, 4, , 5]);
-                        console.log('Starting data capture initialization...');
-                        return [4 /*yield*/, Promise.allSettled([
-                                fetchUserIP(),
-                                getBrowserGeolocation()
-                            ])];
+                        if (!this.config.enableGeolocation) return [3 /*break*/, 4];
+                        _a.label = 1;
                     case 1:
-                        results = _a.sent();
-                        ipResult = results[0];
-                        geolocationResult = results[1];
-                        console.log('IP fetch result:', ipResult);
-                        console.log('Geolocation result:', geolocationResult);
-                        if (!(ipResult.status === 'fulfilled' && ipResult.value && ipResult.value !== 'Unknown')) return [3 /*break*/, 3];
-                        return [4 /*yield*/, fetchLocationFromIP(ipResult.value)];
+                        _a.trys.push([1, 3, , 4]);
+                        return [4 /*yield*/, captureGeolocation()];
                     case 2:
                         _a.sent();
-                        _a.label = 3;
+                        return [3 /*break*/, 4];
                     case 3:
-                        this.dataReady = true;
-                        console.log('All tracking data captured successfully');
-                        console.log('Captured data:', { ip: capturedIP, location: capturedLocation, geolocation: capturedGeolocation });
-                        // Store enhanced tracking data
-                        this.storeEnhancedTrackingData();
-                        // Initialize tracking now that data is ready
-                        this.initialize();
-                        return [3 /*break*/, 5];
+                        error_2 = _a.sent();
+                        console.error('Failed to capture geolocation:', error_2);
+                        return [3 /*break*/, 4];
                     case 4:
-                        error_6 = _a.sent();
-                        console.error('Error capturing tracking data:', error_6);
-                        this.dataReady = true; // Continue even if some data capture fails
-                        this.initialize();
-                        return [3 /*break*/, 5];
-                    case 5: return [2 /*return*/];
+                        // Track initial page view
+                        this.trackPageView();
+                        // Start batch timer
+                        this.startBatchTimer();
+                        return [2 /*return*/];
                 }
             });
         });
     };
-    /**
-     * Store enhanced tracking data with IP and geolocation
-     */
-    VisitorTracker.prototype.storeEnhancedTrackingData = function () {
-        var trackingData = __assign(__assign({}, this.getBrowserInfo()), { entryUrl: this.getTrueEntryUrl(), referrer: document.referrer || 'Direct', affiliateRefCode: getCookieInternal(AFFILIATE_COOKIE) || undefined, clientIp: capturedIP, locationData: capturedLocation || undefined, geolocation: capturedGeolocation || undefined, parsedUserAgent: parseUserAgent(navigator.userAgent) });
-        try {
-            localStorage.setItem('userTrackingData', JSON.stringify(trackingData));
-            console.log('Enhanced tracking data stored:', trackingData);
-        }
-        catch (error) {
-            console.error('Error storing enhanced tracking data:', error);
-        }
-    };
-    /**
-     * Store the initial entry URL on first visit to handle browser referrer inconsistencies
-     */
-    VisitorTracker.prototype.storeInitialEntryUrl = function () {
-        var storedEntryUrl = localStorage.getItem(ENTRY_URL_KEY);
-        if (!storedEntryUrl) {
-            var currentUrl = window.location.href;
-            localStorage.setItem(ENTRY_URL_KEY, currentUrl);
-            console.log('Initial entry URL stored:', currentUrl);
-            return currentUrl;
-        }
-        return storedEntryUrl;
-    };
-    /**
-     * Get the true entry URL (handles browser referrer suppression)
-     */
-    VisitorTracker.prototype.getTrueEntryUrl = function () {
-        return localStorage.getItem(ENTRY_URL_KEY) || window.location.href;
-    };
-    /**
-     * Get browser information
-     */
-    VisitorTracker.prototype.getBrowserInfo = function () {
-        return {
-            userAgent: navigator.userAgent,
-            platform: navigator.platform,
-            screenResolution: "".concat(screen.width, "x").concat(screen.height),
-            language: navigator.language,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            timestamp: Date.now()
-        };
-    };
-    /**
-     * Initialize tracking system
-     */
-    VisitorTracker.prototype.initialize = function () {
-        var _this = this;
-        // Track page view on initialization
-        this.trackPageView();
-        // Set up batch processing
-        this.startBatchTimer();
-        // Send any pending data on page unload
-        if (typeof window !== 'undefined') {
-            window.addEventListener('beforeunload', function () {
-                _this.sendBatch();
-            });
-        }
-    };
-    /**
-     * Get or create visitor UUID with persistent cookie storage
-     */
-    VisitorTracker.prototype.getOrCreateVisitorUUID = function () {
-        var visitorUUID = getCookieInternal(VISITOR_COOKIE);
-        if (!visitorUUID) {
-            visitorUUID = v4();
-            setCookieInternal(VISITOR_COOKIE, visitorUUID, 365); // 1 year
-        }
-        return visitorUUID;
-    };
-    /**
-     * Get or create session ID with expiration handling
-     */
-    VisitorTracker.prototype.getOrCreateSessionId = function () {
-        var sessionId = getCookieInternal(SESSION_COOKIE);
-        var now = Date.now();
-        if (!sessionId || this.isSessionExpired()) {
-            sessionId = "".concat(this.visitorUUID, "_").concat(now);
-            setCookieInternal(SESSION_COOKIE, sessionId, 0); // Session cookie
-            setCookieInternal('trk_session_timestamp', now.toString(), 0);
-        }
-        return sessionId;
-    };
-    /**
-     * Check if current session has expired
-     */
-    VisitorTracker.prototype.isSessionExpired = function () {
-        var timestamp = getCookieInternal('trk_session_timestamp');
-        if (!timestamp)
-            return true;
-        return Date.now() - parseInt(timestamp) > SESSION_TIMEOUT;
-    };
-    /**
-     * Track a page view and add to batch
-     */
     VisitorTracker.prototype.trackPageView = function () {
         var visit = {
             pageUrl: window.location.href,
             timestamp: Date.now(),
-            screenSize: "".concat(window.screen.width, "x").concat(window.screen.height),
+            screenSize: "".concat(screen.width, "x").concat(screen.height),
             language: navigator.language,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            pageTitle: document.title
         };
-        this.addToBatch(visit);
-        // Also maintain legacy page tracking for backward compatibility
-        this.trackPageVisitLegacy(window.location.pathname);
-    };
-    /**
-     * Add visit data to current batch
-     */
-    VisitorTracker.prototype.addToBatch = function (visit) {
-        var batch = this.getBatch();
-        batch.visits.push(visit);
-        this.saveBatch(batch);
-    };
-    /**
-     * Get current batch or create new one with updated tracking info
-     */
-    VisitorTracker.prototype.getBatch = function () {
-        var stored = localStorage.getItem(BATCH_STORAGE_KEY);
-        if (stored) {
-            var batch = JSON.parse(stored);
-            // Ensure siteId is always set correctly
-            batch.siteId = this.siteId;
-            // Update tracking info with current page data
-            batch.trackingInfo = this.getTrackingInfo();
-            batch.utmParameter = parseUTMFromCurrentUrl();
-            return batch;
+        // Get current batch and add visit
+        var currentBatch = this.getCurrentBatch();
+        currentBatch.visits.push(visit);
+        // Save updated batch
+        try {
+            localStorage.setItem('trk_tracking_batch', JSON.stringify(currentBatch));
         }
-        return {
+        catch (error) {
+            console.error('Error saving tracking batch:', error);
+        }
+    };
+    VisitorTracker.prototype.getCurrentBatch = function () {
+        try {
+            var stored = localStorage.getItem('trk_tracking_batch');
+            if (stored) {
+                return JSON.parse(stored);
+            }
+        }
+        catch (error) {
+            console.error('Error parsing stored batch:', error);
+        }
+        // Create new batch
+        var newBatch = {
             siteId: this.siteId,
             visitorUUID: this.visitorUUID,
             sessionId: this.sessionId,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            trackingInfo: this.getTrackingInfo(),
-            utmParameter: parseUTMFromCurrentUrl(),
-            visits: []
+            trackingInfo: generateEnhancedTrackingInfo(),
+            utmParameter: parseUtmParameters(),
+            visits: [],
+            geolocation: globalGeolocation || undefined
         };
+        return newBatch;
     };
-    /**
-     * Save batch to localStorage
-     */
-    VisitorTracker.prototype.saveBatch = function (batch) {
-        localStorage.setItem(BATCH_STORAGE_KEY, JSON.stringify(batch));
-    };
-    /**
-     * Generate comprehensive tracking information with IP and location data
-     */
-    VisitorTracker.prototype.getTrackingInfo = function () {
-        // Get referrer data using enhanced detection
-        var referrerData = detectReferrerData();
-        // Get affiliate code from current URL or cookie
-        var affiliateCode = parseAffiliateFromCurrentUrl();
-        // Parse UTM parameters from current URL
-        var urlParams = new URLSearchParams(window.location.search);
-        // Helper function to get UTM parameters with both formats
-        var getUtmParam = function (hyphenated, underscored) {
-            return urlParams.get(hyphenated) || urlParams.get(underscored) || '';
-        };
-        // Get true entry URL (handles browser referrer suppression)
-        var trueEntryUrl = this.getTrueEntryUrl();
-        var trackingInfo = {
-            referrerUrl: referrerData.url,
-            refererDomain: referrerData.domain,
-            entryUrl: trueEntryUrl, // Use stored entry URL instead of current URL
-            userAgent: navigator.userAgent,
-            siteUrl: window.location.href, // Current page URL
-            sourceCode: getUtmParam('utm-source', 'utm_source') || urlParams.get('source') || 'organic',
-            channelCode: urlParams.get('channel') || this.detectChannel(),
-            campaignCode: getUtmParam('utm-campaign', 'utm_campaign') || urlParams.get('campaign') || '',
-            affiliateCode: affiliateCode,
-            clientIp: capturedIP, // Include captured IP
-            comments: '',
-            customField1: urlParams.get('c1') || '',
-            customField2: urlParams.get('c2') || '',
-            customField3: urlParams.get('c3') || '',
-            customField4: urlParams.get('c4') || '',
-            customField5: urlParams.get('c5') || ''
-        };
-        // Add location data if available
-        if (capturedLocation) {
-            trackingInfo.city = capturedLocation.city;
-            trackingInfo.region = capturedLocation.region;
-            trackingInfo.country = capturedLocation.country;
-            trackingInfo.isp = capturedLocation.isp;
-            trackingInfo.connectionType = capturedLocation.connection;
-        }
-        console.log('Generated enhanced tracking info:', trackingInfo);
-        return trackingInfo;
-    };
-    /**
-     * Detect traffic channel based on referrer
-     */
-    VisitorTracker.prototype.detectChannel = function () {
-        var referrer = document.referrer.toLowerCase();
-        if (!referrer)
-            return 'direct';
-        if (referrer.includes('google.'))
-            return 'google';
-        if (referrer.includes('facebook.') || referrer.includes('fb.'))
-            return 'facebook';
-        if (referrer.includes('twitter.') || referrer.includes('t.co'))
-            return 'twitter';
-        if (referrer.includes('linkedin.'))
-            return 'linkedin';
-        if (referrer.includes('instagram.'))
-            return 'instagram';
-        if (referrer.includes('youtube.'))
-            return 'youtube';
-        return 'referral';
-    };
-    /**
-     * Start batch processing timer
-     */
-    VisitorTracker.prototype.startBatchTimer = function () {
-        var _this = this;
-        this.batchTimer = setInterval(function () {
-            _this.sendBatch();
-        }, BATCH_INTERVAL);
-    };
-    /**
-     * Send current batch to API endpoint with enhanced data
-     */
     VisitorTracker.prototype.sendBatch = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var batch, response, error_7;
+            var batch, response, error_3;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        batch = this.getBatch();
-                        if (batch.visits.length === 0)
+                        batch = this.getCurrentBatch();
+                        if (!batch.visits.length) {
+                            console.log('No visits to send in batch');
                             return [2 /*return*/];
-                        // Add geolocation data if available
-                        if (capturedGeolocation) {
-                            batch.geolocation = capturedGeolocation;
                         }
+                        console.log('Sending enhanced CRM-compatible batch:', batch);
                         _a.label = 1;
                     case 1:
                         _a.trys.push([1, 3, , 4]);
-                        console.log('Sending enhanced tracking batch:', batch);
                         return [4 /*yield*/, fetch(this.apiEndpoint, {
                                 method: 'POST',
                                 headers: {
@@ -927,294 +494,135 @@ var VisitorTracker = /** @class */ (function () {
                     case 2:
                         response = _a.sent();
                         if (response.ok) {
-                            console.log('Batch sent successfully');
-                            // Clear the batch
-                            localStorage.removeItem(BATCH_STORAGE_KEY);
+                            console.log('Tracking batch sent successfully');
+                            // Clear the batch after successful send
+                            localStorage.removeItem('trk_tracking_batch');
                         }
                         else {
-                            console.error('Failed to send batch:', response.status, response.statusText);
+                            console.error('Failed to send tracking batch - HTTP status:', response.status);
                         }
                         return [3 /*break*/, 4];
                     case 3:
-                        error_7 = _a.sent();
-                        console.error('Failed to send tracking batch:', error_7);
+                        error_3 = _a.sent();
+                        console.error('Failed to send tracking batch:', error_3);
                         return [3 /*break*/, 4];
                     case 4: return [2 /*return*/];
                 }
             });
         });
     };
-    /**
-     * Legacy page tracking for backward compatibility
-     */
-    VisitorTracker.prototype.trackPageVisitLegacy = function (url) {
-        var visitorData = this.getVisitorData();
-        if (!visitorData) {
-            visitorData = {
-                sessionId: this.sessionId,
-                visits: [],
-                lastBatchSent: Date.now(),
-                totalVisits: 0,
-                pagesVisited: [],
-                pageCount: 0
-            };
-        }
-        // Ensure pagesVisited is always an array
-        if (!Array.isArray(visitorData.pagesVisited)) {
-            visitorData.pagesVisited = [];
-        }
-        // Clean URL (remove query params and hash for better tracking)
-        var cleanUrl = url.split('?')[0].split('#')[0];
-        // Only add if not already visited in this session
-        if (!visitorData.pagesVisited.includes(cleanUrl)) {
-            visitorData.pagesVisited.push(cleanUrl);
-            visitorData.pageCount = visitorData.pagesVisited.length;
-            // Save updated visitor data
-            this.saveVisitorData(visitorData);
-            console.log("Page tracked: ".concat(cleanUrl, ". Total pages in session: ").concat(visitorData.pageCount));
-        }
+    VisitorTracker.prototype.startBatchTimer = function () {
+        var _this = this;
+        this.batchTimer = setInterval(function () {
+            _this.sendBatch();
+        }, this.config.batchSendInterval);
     };
-    /**
-     * Get visitor data
-     */
-    VisitorTracker.prototype.getVisitorData = function () {
-        try {
-            var data = localStorage.getItem('visitorData');
-            if (data) {
-                return JSON.parse(data);
-            }
-        }
-        catch (error) {
-            console.error('Error getting visitor data:', error);
-        }
-        return null;
-    };
-    /**
-     * Save visitor data
-     */
-    VisitorTracker.prototype.saveVisitorData = function (visitorData) {
-        try {
-            localStorage.setItem('visitorData', JSON.stringify(visitorData));
-        }
-        catch (error) {
-            console.error('Error saving visitor data:', error);
-        }
-    };
-    /**
-     * Clean up tracker and send final batch
-     */
-    VisitorTracker.prototype.destroy = function () {
-        if (this.batchTimer) {
-            clearInterval(this.batchTimer);
-        }
-        this.sendBatch();
-    };
-    // Public getters for debugging and external access
     VisitorTracker.prototype.getVisitorUUID = function () {
         return this.visitorUUID;
     };
     VisitorTracker.prototype.getSessionId = function () {
         return this.sessionId;
     };
-    VisitorTracker.prototype.getCurrentBatch = function () {
-        return this.getBatch();
+    VisitorTracker.prototype.destroy = function () {
+        if (this.batchTimer) {
+            clearInterval(this.batchTimer);
+            this.batchTimer = null;
+        }
     };
-    VisitorTracker.prototype.getCapturedData = function () {
-        return {
-            ip: capturedIP,
-            location: capturedLocation,
-            geolocation: capturedGeolocation
-        };
+    // Get current configuration
+    VisitorTracker.prototype.getConfig = function () {
+        return __assign({}, this.config);
+    };
+    // Update configuration
+    VisitorTracker.prototype.updateConfig = function (newConfig) {
+        this.config = __assign(__assign({}, this.config), newConfig);
+        currentConfig = this.config;
+        // Restart batch timer if interval changed
+        if (newConfig.batchSendInterval && this.batchTimer) {
+            clearInterval(this.batchTimer);
+            this.startBatchTimer();
+        }
+        console.log('Configuration updated:', this.config);
     };
     return VisitorTracker;
 }());
-// ============================================================================
-// LEGACY COMPATIBILITY FUNCTIONS
-// ============================================================================
-// Global tracker instance for legacy support
-var globalTracker = null;
-/**
- * Legacy storage functions for backward compatibility
- */
-var getVisitorData = function () {
-    try {
-        var data = localStorage.getItem('visitorData');
-        if (data) {
-            return JSON.parse(data);
-        }
-    }
-    catch (error) {
-        console.error('Error getting visitor data:', error);
-    }
-    return null;
+// Initialize tracking function with configurable options
+var initializeTracking = function (siteId, apiEndpoint, config) {
+    console.log('Initializing comprehensive tracking system with config:', config);
+    return new VisitorTracker(siteId, apiEndpoint, config);
 };
-var saveVisitorData = function (visitorData) {
-    try {
-        localStorage.setItem('visitorData', JSON.stringify(visitorData));
-    }
-    catch (error) {
-        console.error('Error saving visitor data:', error);
-    }
-};
-/**
- * Get current tracking data with fresh affiliate code from cookie and enhanced data
- */
+// Utility functions for getting tracking data
 var getUserTrackingData = function () {
-    try {
-        var data = localStorage.getItem('userTrackingData');
-        if (data) {
-            var parsed = JSON.parse(data);
-            // Always get fresh affiliate code from cookie
-            var affiliateCode = getCookie('affiliateRefCode');
-            if (affiliateCode) {
-                parsed.affiliateRefCode = affiliateCode;
-            }
-            // Add captured data if available
-            if (capturedIP) {
-                parsed.clientIp = capturedIP;
-            }
-            if (capturedLocation) {
-                parsed.locationData = capturedLocation;
-            }
-            if (capturedGeolocation) {
-                parsed.geolocation = capturedGeolocation;
-            }
-            return parsed;
-        }
-    }
-    catch (error) {
-        console.error('Error getting tracking data:', error);
-    }
-    return null;
-};
-/**
- * Get browser information for legacy compatibility
- */
-var getBrowserInfo = function () {
+    var affiliateCode = getCookie('affiliateRefCode') || localStorage.getItem('affiliateRefCode') || '';
     return {
+        ip: globalClientIp,
+        location: globalLocationData || {},
+        geolocation: globalGeolocation || { latitude: 0, longitude: 0, accuracy: 0, timestamp: 0 },
+        sources: dataSources,
         userAgent: navigator.userAgent,
+        clientIp: globalClientIp,
         platform: navigator.platform,
-        screenResolution: "".concat(screen.width, "x").concat(screen.height),
         language: navigator.language,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        timestamp: Date.now()
+        screenResolution: "".concat(screen.width, "x").concat(screen.height),
+        referrer: document.referrer,
+        entryUrl: window.location.href,
+        locationData: globalLocationData || {},
+        affiliateRefCode: affiliateCode
     };
 };
-/**
- * Legacy functions for backward compatibility
- */
-var trackPageVisit = function (url) {
-    if (globalTracker) {
-        globalTracker.trackPageView();
-    }
-};
+var fetchLocationData = function (ip) { return __awaiter(void 0, void 0, void 0, function () {
+    var response, data, locationData, error_4;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                if (!ip) {
+                    return [2 /*return*/, globalLocationData || {}];
+                }
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 4, , 5]);
+                return [4 /*yield*/, fetch("https://ipapi.co/".concat(ip, "/json/"))];
+            case 2:
+                response = _a.sent();
+                return [4 /*yield*/, response.json()];
+            case 3:
+                data = _a.sent();
+                locationData = {
+                    city: data.city,
+                    region: data.region,
+                    country: data.country_name,
+                    isp: data.org,
+                    connectionType: data.connection_type || 'Unknown',
+                    connection: data.connection_type || 'Unknown'
+                };
+                globalLocationData = locationData;
+                return [2 /*return*/, locationData];
+            case 4:
+                error_4 = _a.sent();
+                console.error('Failed to fetch location data:', error_4);
+                return [2 /*return*/, globalLocationData || {}];
+            case 5: return [2 /*return*/];
+        }
+    });
+}); };
 var getPagesVisited = function () {
-    var visitorData = getVisitorData();
-    return Array.isArray(visitorData === null || visitorData === void 0 ? void 0 : visitorData.pagesVisited) ? visitorData.pagesVisited : [];
+    var _a;
+    try {
+        var batch = localStorage.getItem('trk_tracking_batch');
+        if (batch) {
+            var parsed = JSON.parse(batch);
+            return ((_a = parsed.visits) === null || _a === void 0 ? void 0 : _a.map(function (visit) { return visit.pageUrl; })) || [];
+        }
+    }
+    catch (error) {
+        console.error('Error getting pages visited:', error);
+    }
+    return [];
 };
 var getPageCount = function () {
-    var visitorData = getVisitorData();
-    return (visitorData === null || visitorData === void 0 ? void 0 : visitorData.pageCount) || 0;
+    return getPagesVisited().length;
 };
-/**
- * Set global tracker reference for legacy functions
- */
-var setGlobalTracker = function (tracker) {
-    globalTracker = tracker;
-};
-// ============================================================================
-// DEBUG UTILITIES
-// ============================================================================
-/**
- * Debug class for console debugging and troubleshooting
- */
-var TrackingDebugger = /** @class */ (function () {
-    function TrackingDebugger() {
-    }
-    TrackingDebugger.checkSetup = function () {
-        var _a, _b;
-        console.log('=== Enhanced CRM Tracking Debug ===');
-        // Check cookies
-        var visitorId = (_a = document.cookie.match(/trk_visitor_uuid=([^;]+)/)) === null || _a === void 0 ? void 0 : _a[1];
-        var sessionId = document.cookie.match((_b = /trk_session_id=([^;]+)/) === null || _b === void 0 ? void 0 : _b[1]);
-        console.log('Visitor UUID:', visitorId || 'NOT FOUND');
-        console.log('Session ID:', sessionId || 'NOT FOUND');
-        // Check localStorage
-        var batch = localStorage.getItem('trk_tracking_batch');
-        console.log('Batch data:', batch ? 'FOUND' : 'NOT FOUND');
-        if (batch) {
-            var data = JSON.parse(batch);
-            console.log('Visits in batch:', data.visits.length);
-            console.log('Site ID:', data.siteId);
-            console.log('Current tracking info:', data.trackingInfo);
-            console.log('Current UTM parameters:', data.utmParameter);
-        }
-        // Check captured data
-        console.log('Captured IP:', capturedIP || 'NOT CAPTURED');
-        console.log('Captured Location:', capturedLocation || 'NOT CAPTURED');
-        console.log('Captured Geolocation:', capturedGeolocation || 'NOT CAPTURED');
-        // Check for tracking script
-        var hasTracker = typeof window.crmTracker !== 'undefined';
-        console.log('Tracker initialized:', hasTracker ? 'YES' : 'NO');
-        console.log('=== End Enhanced Debug ===');
-    };
-    TrackingDebugger.forceSendBatch = function () {
-        var tracker = window.crmTracker;
-        if (tracker) {
-            tracker.sendBatch();
-            console.log('Batch send triggered');
-        }
-        else {
-            console.error('No tracker instance found');
-        }
-    };
-    TrackingDebugger.clearData = function () {
-        localStorage.removeItem('trk_tracking_batch');
-        localStorage.removeItem('visitorData');
-        localStorage.removeItem('userTrackingData');
-        localStorage.removeItem(ENTRY_URL_KEY);
-        localStorage.removeItem(REFERRER_KEY);
-        localStorage.removeItem(REFERRER_DOMAIN_KEY);
-        localStorage.removeItem(FIRST_VISIT_KEY);
-        localStorage.removeItem('affiliateRefCode');
-        document.cookie = 'trk_visitor_uuid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        document.cookie = 'trk_session_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        document.cookie = 'affiliateRefCode=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        // Reset captured data
-        capturedIP = '';
-        capturedLocation = null;
-        capturedGeolocation = null;
-        console.log('All tracking data cleared');
-    };
-    TrackingDebugger.getCapturedData = function () {
-        return {
-            ip: capturedIP,
-            location: capturedLocation,
-            geolocation: capturedGeolocation
-        };
-    };
-    return TrackingDebugger;
-}());
-// ============================================================================
-// MAIN INITIALIZATION FUNCTION
-// ============================================================================
-/**
- * Initialize tracking system with site ID and API endpoint, including IP and geolocation capture
- */
-function initializeTracking(siteId, apiEndpoint) {
-    if (globalTracker) {
-        globalTracker.destroy();
-    }
-    globalTracker = new VisitorTracker(siteId, apiEndpoint);
-    // Set global tracker for legacy functions
-    setGlobalTracker(globalTracker);
-    // Make available globally for debugging
-    if (typeof window !== 'undefined') {
-        window.crmTracker = globalTracker;
-        window.TrackingDebugger = TrackingDebugger;
-    }
-    return globalTracker;
-}
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -1238,4 +646,4 @@ var index = {
     getPageCount: getPageCount
 };
 
-export { AFFILIATE_COOKIE, BATCH_INTERVAL, BATCH_STORAGE_KEY, ENTRY_URL_KEY, FIRST_VISIT_KEY, REFERRER_DOMAIN_KEY, REFERRER_KEY, SESSION_COOKIE, SESSION_TIMEOUT, TrackingDebugger, VISITOR_COOKIE, VisitorTracker, index as default, fetchLocationData, fetchLocationFromIP, fetchUserIP, getBrowserGeolocation, getBrowserInfo, getCookie, getPageCount, getPagesVisited, getUserTrackingData, getVisitorData, initializeTracking, parseAffiliateCode, parseUserAgent, reverseGeocode, saveVisitorData, setCookie, setGlobalTracker, trackPageVisit };
+export { VisitorTracker, index as default, fetchLocationData, fetchUserIP, getCookie, getPageCount, getPagesVisited, getUserTrackingData, initializeTracking, parseUserAgent, setCookie };
