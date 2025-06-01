@@ -1200,7 +1200,7 @@ export class TrackingDebugger {
     
     // Check cookies
     const visitorId = document.cookie.match(/trk_visitor_uuid=([^;]+)/)?.[1];
-    const sessionId = document.cookie.match(/trk_session_id=([^;]+)/?.[1];
+    const sessionId = document.cookie.match(/trk_session_id=([^;]+)/)?.[1];
     
     console.log('Visitor UUID:', visitorId || 'NOT FOUND');
     console.log('Session ID:', sessionId || 'NOT FOUND');
