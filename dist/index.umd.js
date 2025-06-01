@@ -367,9 +367,12 @@
                             error_3 = _a.sent();
                             console.error('Failed to capture geolocation:', error_3);
                             return [3 /*break*/, 4];
-                        case 4:
+                        case 4: 
+                        // Track initial page view
+                        return [4 /*yield*/, this.trackPageView()];
+                        case 5:
                             // Track initial page view
-                            this.trackPageView();
+                            _a.sent();
                             // Start batch timer
                             this.startBatchTimer();
                             return [2 /*return*/];
@@ -378,24 +381,34 @@
             });
         };
         VisitorTracker.prototype.trackPageView = function () {
-            var visit = {
-                pageUrl: window.location.href,
-                timestamp: Date.now(),
-                screenSize: "".concat(screen.width, "x").concat(screen.height),
-                language: navigator.language,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                pageTitle: document.title
-            };
-            // Get current batch and add visit
-            var currentBatch = this.getCurrentBatch();
-            currentBatch.visits.push(visit);
-            // Save updated batch
-            try {
-                localStorage.setItem('trk_tracking_batch', JSON.stringify(currentBatch));
-            }
-            catch (error) {
-                console.error('Error saving tracking batch:', error);
-            }
+            return __awaiter(this, void 0, void 0, function () {
+                var visit, currentBatch;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0:
+                            visit = {
+                                pageUrl: window.location.href,
+                                timestamp: Date.now(),
+                                screenSize: "".concat(screen.width, "x").concat(screen.height),
+                                language: navigator.language,
+                                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                                pageTitle: document.title
+                            };
+                            return [4 /*yield*/, this.getCurrentBatch()];
+                        case 1:
+                            currentBatch = _a.sent();
+                            currentBatch.visits.push(visit);
+                            // Save updated batch
+                            try {
+                                localStorage.setItem('trk_tracking_batch', JSON.stringify(currentBatch));
+                            }
+                            catch (error) {
+                                console.error('Error saving tracking batch:', error);
+                            }
+                            return [2 /*return*/];
+                    }
+                });
+            });
         };
         VisitorTracker.prototype.getCurrentBatch = function () {
             return __awaiter(this, void 0, void 0, function () {
@@ -452,16 +465,17 @@
                 var batch, response, error_5;
                 return __generator(this, function (_a) {
                     switch (_a.label) {
-                        case 0:
-                            batch = this.getCurrentBatch();
+                        case 0: return [4 /*yield*/, this.getCurrentBatch()];
+                        case 1:
+                            batch = _a.sent();
                             if (!batch.visits.length) {
                                 console.log('No visits to send in batch');
                                 return [2 /*return*/];
                             }
                             console.log('Sending enhanced CRM-compatible batch:', batch);
-                            _a.label = 1;
-                        case 1:
-                            _a.trys.push([1, 3, , 4]);
+                            _a.label = 2;
+                        case 2:
+                            _a.trys.push([2, 4, , 5]);
                             return [4 /*yield*/, fetch(this.apiEndpoint, {
                                     method: 'POST',
                                     headers: {
@@ -469,7 +483,7 @@
                                     },
                                     body: JSON.stringify(batch)
                                 })];
-                        case 2:
+                        case 3:
                             response = _a.sent();
                             if (response.ok) {
                                 console.log('Tracking batch sent successfully');
@@ -479,12 +493,12 @@
                             else {
                                 console.error('Failed to send tracking batch - HTTP status:', response.status);
                             }
-                            return [3 /*break*/, 4];
-                        case 3:
+                            return [3 /*break*/, 5];
+                        case 4:
                             error_5 = _a.sent();
                             console.error('Failed to send tracking batch:', error_5);
-                            return [3 /*break*/, 4];
-                        case 4: return [2 /*return*/];
+                            return [3 /*break*/, 5];
+                        case 5: return [2 /*return*/];
                     }
                 });
             });
