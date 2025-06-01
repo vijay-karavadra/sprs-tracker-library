@@ -498,13 +498,13 @@ export class VisitorTracker {
     }
     
     // Track initial page view
-    this.trackPageView();
+    await this.trackPageView();
     
     // Start batch timer
     this.startBatchTimer();
   }
 
-  public trackPageView(): void {
+  public async trackPageView(): Promise<void> {
     const visit: VisitData = {
       pageUrl: window.location.href,
       timestamp: Date.now(),
@@ -515,7 +515,7 @@ export class VisitorTracker {
     };
 
     // Get current batch and add visit
-    const currentBatch = this.getCurrentBatch();
+    const currentBatch = await this.getCurrentBatch();
     currentBatch.visits.push(visit);
     
     // Save updated batch
@@ -565,7 +565,7 @@ export class VisitorTracker {
   }
 
   public async sendBatch(): Promise<void> {
-    const batch = this.getCurrentBatch();
+    const batch = await this.getCurrentBatch();
     
     if (!batch.visits.length) {
       console.log('No visits to send in batch');
