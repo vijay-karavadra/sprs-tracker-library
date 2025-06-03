@@ -1,18 +1,25 @@
 import { terser } from "rollup-plugin-terser";
 import typescript from '@rollup/plugin-typescript';
+import resolve from '@rollup/plugin-node-resolve';
+import commonjs from '@rollup/plugin-commonjs';
 
 export default {
   input: "src/index.ts",
   output: [
     {
-      file: "dist/index.esm.js", // for Next.js
+      file: "dist/index.esm.js", // For modern bundlers like Next.js
       format: "esm",
     },
     {
-      file: "dist/index.umd.js", // for WordPress or browsers
+      file: "dist/index.umd.js", // For direct browser use (e.g., in WordPress)
       format: "umd",
-      name: "sperse-tracker",
+      name: "VisitorTracker", // This becomes window.VisitorTracker
     },
   ],
-  plugins: [typescript()],
+  plugins: [
+    resolve(),      // Enables importing from node_modules
+    commonjs(),     // Converts CommonJS modules (like uuid) to ES6
+    typescript(),
+    terser(),       // Optional: minify output
+  ],
 };
