@@ -710,3 +710,27 @@ export const getPagesVisited = (): string[] => {
 export const getPageCount = (): number => {
   return getPagesVisited().length;
 };
+
+// Export key functions and types to window object
+declare global {
+  interface Window {
+    VisitorTracker: typeof VisitorTracker;
+    initializeTracking: typeof initializeTracking;
+    fetchUserIP: typeof fetchUserIP;
+    getUserTrackingData: typeof getUserTrackingData;
+    fetchLocationData: typeof fetchLocationData;
+    getPagesVisited: typeof getPagesVisited;
+    getPageCount: typeof getPageCount;
+  }
+}
+
+// Assign to window object
+if (typeof window !== 'undefined') {
+  window.VisitorTracker = VisitorTracker;
+  window.initializeTracking = initializeTracking;
+  window.fetchUserIP = fetchUserIP;
+  window.getUserTrackingData = getUserTrackingData;
+  window.fetchLocationData = fetchLocationData;
+  window.getPagesVisited = getPagesVisited;
+  window.getPageCount = getPageCount;
+}

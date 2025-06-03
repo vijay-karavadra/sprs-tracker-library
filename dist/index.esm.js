@@ -611,5 +611,15 @@ var getPagesVisited = function () {
 var getPageCount = function () {
     return getPagesVisited().length;
 };
+// Assign to window object
+if (typeof window !== 'undefined') {
+    window.VisitorTracker = VisitorTracker;
+    window.initializeTracking = initializeTracking;
+    window.fetchUserIP = fetchUserIP;
+    window.getUserTrackingData = getUserTrackingData;
+    window.fetchLocationData = fetchLocationData;
+    window.getPagesVisited = getPagesVisited;
+    window.getPageCount = getPageCount;
+}
 
 export { VisitorTracker, fetchLocationData, fetchUserIP, getCookie, getPageCount, getPagesVisited, getUserTrackingData, initializeTracking, parseUserAgent, setCookie };
