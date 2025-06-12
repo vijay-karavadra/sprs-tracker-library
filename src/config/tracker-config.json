@@ -1,0 +1,4 @@
+{
+  "enableGeolocation": true,
+  "batchSendInterval": 30000
+}

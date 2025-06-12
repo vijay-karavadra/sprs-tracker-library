@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { AffiliateAttributionMode, TrackingConfig } from './types/TrackingConfig';
 
 // Configuration constants with defaults
 const DEFAULT_COOKIE_EXPIRE_DAYS = 30;
@@ -8,17 +9,6 @@ const DEFAULT_ATTRIBUTION_MODE: AffiliateAttributionMode = 'first-visit';
 const FIRST_VISIT_KEY = 'trk_first_visit';
 const SESSION_START_KEY = 'trk_session_start';
 
-// Attribution mode configuration
-export type AffiliateAttributionMode = 'first-visit' | 'most-recent';
-
-// Configuration interface
-export interface TrackingConfig {
-  affiliateAttributionMode?: AffiliateAttributionMode;
-  cookieExpireDays?: number;
-  sessionTimeout?: number;
-  batchSendInterval?: number;
-  enableGeolocation?: boolean;
-}
 
 // Global variables for tracking data
 let globalClientIp = '';
