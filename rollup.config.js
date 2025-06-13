@@ -15,8 +15,12 @@ export default {
       file: "dist/index.umd.js", // For direct browser use (e.g., in WordPress)
       format: "umd",
       name: "VisitorTracker", // This becomes window.VisitorTracker
+      globals: {
+        react: "React"
+      }
     },
   ],
+  external: ['react'], // <-- Add this line
   plugins: [
     resolve(),      // Enables importing from node_modules
     commonjs(),     // Converts CommonJS modules (like uuid) to ES6
