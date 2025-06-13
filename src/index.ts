@@ -724,3 +724,5 @@ if (typeof window !== 'undefined') {
   window.getPagesVisited = getPagesVisited;
   window.getPageCount = getPageCount;
 }
+
+export { useTracker } from './hooks/useTracker';

@@ -138,3 +138,4 @@ declare global {
         getPageCount: typeof getPageCount;
     }
 }
+export { useTracker } from './hooks/useTracker';
