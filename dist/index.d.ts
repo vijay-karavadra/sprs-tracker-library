@@ -19,7 +19,7 @@ export interface GeolocationData {
 export interface ParsedUserAgent {
     browser: string;
     browserVersion: string;
-    device: 'Mobile' | 'Desktop' | 'Tablet' | 'Unknown';
+    device: 'Mobile' | 'Desktop' | 'Tablet' | 'Unknown' | 'Bot';
     os: string;
 }
 export interface TrackingInfo {

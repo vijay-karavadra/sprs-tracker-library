@@ -46,7 +46,7 @@ export interface GeolocationData {
 export interface ParsedUserAgent {
   browser: string;
   browserVersion: string;
-  device: 'Mobile' | 'Desktop' | 'Tablet' | 'Unknown'; // Fixed to use union type
+  device: 'Mobile' | 'Desktop' | 'Tablet' | 'Unknown' | 'Bot'; // Fixed to use union type
   os: string;
 }
 
@@ -223,7 +223,7 @@ export const parseUserAgent = (userAgent: string): ParsedUserAgent => {
   }
   
   // Ensure device returns the correct union type
-  let device: 'Mobile' | 'Desktop' | 'Tablet' | 'Unknown' = 'Unknown';
+  let device: 'Mobile' | 'Desktop' | 'Tablet' | 'Unknown' | 'Bot' = 'Unknown';
   if (/Mobile|Android|iPhone/.test(userAgent)) {
     device = 'Mobile';
   } else if (/iPad|Tablet/.test(userAgent)) {
@@ -295,8 +295,12 @@ const captureGeolocation = async (): Promise<GeolocationData | null> => {
   }
 
   try {
-    // Always get the IP-based location data first
-    const locationData = await fetchLocationData();
+    // Fetch user IP first
+    if (!globalClientIp) {
+      globalClientIp = await fetchUserIP();
+    }
+    // Now fetch location data using the IP
+    const locationData = await fetchLocationData(globalClientIp);
 
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
