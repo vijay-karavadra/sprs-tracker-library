@@ -295,13 +295,13 @@ const captureGeolocation = async (): Promise<GeolocationData | null> => {
   }
 
   try {
-    // First get the IP-based location data
+    // Always get the IP-based location data first
     const locationData = await fetchLocationData();
-    
+
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
         console.log('Geolocation API not supported');
-        resolve({
+        const geo: GeolocationData = {
           latitude: 0,
           longitude: 0,
           accuracy: 0,
@@ -309,31 +309,43 @@ const captureGeolocation = async (): Promise<GeolocationData | null> => {
           city: locationData?.city || 'Unknown',
           region: locationData?.region || 'Unknown',
           country: locationData?.country || 'Unknown'
-        });
+        };
+        globalGeolocation = geo;
+        resolve(geo);
         return;
       }
 
       console.log('Requesting geolocation permission...');
-      
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          // If browser returns zeros or very low accuracy, fallback to IP-based
+          let latitude = position.coords.latitude;
+          let longitude = position.coords.longitude;
+          let accuracy = position.coords.accuracy;
+
+          // Some browsers may return 0,0 if denied or blocked
+          const isInvalid =
+            (!latitude && !longitude) ||
+            (typeof latitude === 'number' && typeof longitude === 'number' && latitude === 0 && longitude === 0);
+
           const geolocationData: GeolocationData = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
+            latitude: isInvalid ? 0 : latitude,
+            longitude: isInvalid ? 0 : longitude,
+            accuracy: isInvalid ? 0 : accuracy,
             timestamp: Date.now(),
             city: locationData?.city || 'Unknown',
             region: locationData?.region || 'Unknown',
             country: locationData?.country || 'Unknown'
           };
-          
-          console.log('Geolocation captured successfully:', geolocationData);
+
+          console.log('Geolocation captured (with fallback if needed):', geolocationData);
           globalGeolocation = geolocationData;
           resolve(geolocationData);
         },
         (error) => {
           console.log('Geolocation error:', error.code, error.message);
-          resolve({
+          const geo: GeolocationData = {
             latitude: 0,
             longitude: 0,
             accuracy: 0,
@@ -341,13 +353,15 @@ const captureGeolocation = async (): Promise<GeolocationData | null> => {
             city: locationData?.city || 'Unknown',
             region: locationData?.region || 'Unknown',
             country: locationData?.country || 'Unknown'
-          });
+          };
+          globalGeolocation = geo;
+          resolve(geo);
         }
       );
     });
   } catch (error) {
     console.error('Error in geolocation capture:', error);
-    return {
+    const geo: GeolocationData = {
       latitude: 0,
       longitude: 0,
       accuracy: 0,
@@ -356,6 +370,8 @@ const captureGeolocation = async (): Promise<GeolocationData | null> => {
       region: 'Unknown',
       country: 'Unknown'
     };
+    globalGeolocation = geo;
+    return geo;
   }
 };
 
@@ -481,7 +497,8 @@ export class VisitorTracker {
     // Capture geolocation if enabled
     if (this.config.enableGeolocation) {
       try {
-        await captureGeolocation();
+        // Always await and set globalGeolocation
+        globalGeolocation = await captureGeolocation();
       } catch (error) {
         console.error('Failed to capture geolocation:', error);
       }
